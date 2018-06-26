@@ -42,12 +42,20 @@ Character.prototype.shouldUseSkill = function() {
     return (this.life < this.maxLife/2 && this.counter > 0);
 }
 
-Character.prototype.drinkSecretDrink = function (opposite) {
-    if(this.secretDrink && ((this instanceof Hero && opposite instanceof Monster ) || (this instanceof Monster && opposite instanceof Hero))) {
-        console.log("Character " + this.name + " use secret drink");
-        this.secretDrink = false;
-        this.enchanted = true;
-        this.counter *= 2;
+Character.prototype.shouldUseSecretDrink = function(opposite) {
+    return this.secretDrink && ((this instanceof Hero && opposite instanceof Monster ) || (this instanceof Monster && opposite instanceof Hero))
+}
+
+Character.prototype.drinkSecretDrink = function () {
+    console.log("Character " + this.name + " use secret drink");
+    this.secretDrink = false;
+    this.enchanted = true;
+    this.counter *= 2;
+}
+
+Character.prototype.prepareForBattle = function(opposite) {
+    if(this.shouldUseSecretDrink(opposite)) {
+        this.drinkSecretDrink();
     }
 }
 
@@ -74,6 +82,7 @@ Hero.WIZARD = {
     life: Character.STANDARTLIFE,
     damage: 100
 }
+
 
 Hero.prototype = Object.create(Character.prototype);
 Hero.prototype.constructor = Hero;
@@ -135,57 +144,53 @@ Monster.prototype.setLife = function (dmg) {
     }
 }
 
-var CharacterFactory = function () {
-    if (CharacterFactory.instance) {
-        return CharacterFactory.instance;
-    }
-    CharacterFactory.instance = this;
-}
+var CharacterFactory = function () {}
 
-CharacterFactory.prototype.createHero = function (name, race) {
+CharacterFactory.createHero = function (name, race) {
     return new Hero(name, race, Character.STANDARTLIFE, Character.STANDARTDAMAGE);
 }
 
-CharacterFactory.prototype.createMonster = function (name, race) {
+CharacterFactory.createMonster = function (name, race) {
     return new Monster(name, race, Character.STANDARTLIFE, Character.STANDARTDAMAGE);
 }
 
-CharacterFactory.prototype.createHeroTheif = function (name) {
+CharacterFactory.createHeroTheif = function (name) {
     return new Hero(name, Hero.THEIF.race, Hero.THEIF.life, Hero.THEIF.damage);
 }
 
-CharacterFactory.prototype.createHeroWizard = function (name) {
+CharacterFactory.createHeroWizard = function (name) {
     return new Hero(name, Hero.WIZARD.race, Hero.WIZARD.life, Hero.WIZARD.damage);
 }
 
-CharacterFactory.prototype.createHeroWarrior = function (name) {
+CharacterFactory.createHeroWarrior = function (name) {
     return new Hero(name, Hero.WARRIOR.race, Hero.WARRIOR.life, Hero.WARRIOR.damage);
 }
 
-CharacterFactory.prototype.createMonsterGoblin = function(name) {
+CharacterFactory.createMonsterGoblin = function(name) {
     return new Monster(name, Monster.GOBLIN.race, Monster.GOBLIN.life, Monster.GOBLIN.damage)
 }
 
-CharacterFactory.prototype.createMonsterOrk = function(name) {
+CharacterFactory.createMonsterOrk = function(name) {
     return new Monster(name, Monster.ORK.race, Monster.ORK.life, Monster.ORK.damage)
 }
 
-CharacterFactory.prototype.createMonsterVampire = function(name) {
+CharacterFactory.createMonsterVampire = function(name) {
     return new Monster(name, Monster.VAMPIRE.race, Monster.VAMPIRE.life, Monster.VAMPIRE.damage)
 }
 
-function Game(monster, hero) {
-    this.hero = hero;
-    this.monster = monster;
+function Game(character1, character2) {
+    this.character1 = character1;
+    this.character2 = character2;
     this.loser;
     this.winner;
+    this.noWinners = false;
 }
 
-Game.prototype.getHero = function() {
-    return this.hero;
+Game.prototype.getCharacter1 = function() {
+    return this.character1;
 }
-Game.prototype.getMonster = function() {
-    return this.monster;
+Game.prototype.getCharacter2 = function() {
+    return this.character2;
 }
 
 Game.prototype.setLoser = function(character) {
@@ -200,22 +205,25 @@ Game.prototype.getLoser = function() {
 Game.prototype.getWinner = function() {
     return this.winner;
 }
+Game.prototype.isDraw = function() {
+    return this.noWinners;
+}
 
-Game.prototype.fight = function (hero, monster) {
-    while (hero.isAlive() && monster.isAlive()) {
-        hero.attack(monster);
-        console.log(this.monster.name + ' life: ' + monster.getLife());
-        if (monster.isAlive()) {
-            monster.attack(hero);
-            console.log(this.hero.name + ' life: ' + hero.getLife());
-        }
+Game.prototype.fight = function (charcter1, character2) {
+    while (charcter1.isAlive() && character2.isAlive()) {
+        charcter1.attack(character2);
+        console.log(this.character2.name + ' life: ' + character2.getLife());
+        character2.attack(charcter1);
+        console.log(this.character1.name + ' life: ' + charcter1.getLife());
     }
-    if(hero.isAlive()) {
-        this.setWinner(hero);
-        this.setLoser(monster);
-    } else if (monster.isAlive()) {
-        this.setWinner(monster);
-        this.setLoser(hero)
+    if(charcter1.isAlive()) {
+        this.setWinner(charcter1);
+        this.setLoser(character2);
+    } else if (character2.isAlive()) {
+        this.setWinner(character2);
+        this.setLoser(charcter1)
+    } else {
+        this.noWinners = true;
     }
 }
 
@@ -227,7 +235,7 @@ Herold.prototype.declare = function (message) {
     console.log(message);
 }
 
-var ListOfAllowedHeroNames = {
+var listOfAllowedHeroNames = {
     "theif": ["Diamond", "Ruby", "Emerald"],
     "wizard": ["Thunder", "Ice", "Fire"],
     "warrior": ["Courage", "Wisdom", "Power"]
@@ -251,10 +259,18 @@ FaceControl.prototype.checkOrigin = function (character) {
 }
 
 FaceControl.prototype.checkRace = function(character) {
-    if (character instanceof Hero && (character.race === Hero.THEIF.race || character.race === Hero.WARRIOR.race || character.race === Hero.WIZARD.race )) {
-        return true;
+    if (character instanceof Hero) {
+        for(var key in Hero){
+            if(Hero[key].race == character.race) {
+                return true;
+            }
+        }
     } else if (character instanceof Monster && (character.race === Monster.ORK.race || character.race === Monster.GOBLIN.race || character.race === Monster.VAMPIRE.race )){
-        return true;
+        for(var key in Monster){
+            if(Monster[key].race == character.race) {
+                return true;
+            }
+        }
     }
     return false;
 
@@ -262,7 +278,7 @@ FaceControl.prototype.checkRace = function(character) {
 
 FaceControl.prototype.checkName = function(character) {
     if (character instanceof Hero){
-        return ListOfAllowedHeroNames[character.race].indexOf(character.name) >= 0;
+        return listOfAllowedHeroNames[character.race].indexOf(character.name) >= 0;
     } else if (character instanceof Monster){
         return monstersAndCreaturesGuide[character.race].indexOf(character.name) >= 0;
     }
@@ -327,47 +343,53 @@ Tournament.prototype.start = function() {
 
             this.herold.declare("Figters are " + character1.name + " and " + character2.name);
 
-            character1.drinkSecretDrink(character2);
-            character2.drinkSecretDrink(character1);
+            character1.prepareForBattle(character2);
+            character2.prepareForBattle(character1);
 
             var myGame = new Game(character1, character2);
-            myGame.fight(myGame.getHero(), myGame.getMonster());
+            myGame.fight(myGame.getCharacter1(), myGame.getCharacter2());
 
-            var winner = myGame.getWinner();
-            var loser = myGame.getLoser();
-
-            this.herold.declare("Winner is " + winner.name);
-            winner.updateCharacter();
-            winner.setReward();
-            this.unsubscribe(loser);
+            if(myGame.isDraw()) {
+                this.herold.declare("There are no winners");
+                this.unsubscribe(character1);
+                this.unsubscribe(character2);
+            } else {
+                var winner = myGame.getWinner();
+                var loser = myGame.getLoser();
+                this.herold.declare("Winner is " + winner.name);
+                winner.updateCharacter();
+                winner.setReward();
+                this.unsubscribe(loser);
+            }
         }
-        this.winner = this.getParticipans()[0];
-        this.herold.declare("Tournament Winner is " + this.winner.name);
+        if(this.getParticipans().length > 0) {
+            this.winner = this.getParticipans()[0];
+            this.herold.declare("Tournament winner is " + this.winner.name);
+        } else {
+            this.herold.declare("There are no winners in tournament!")
+        }
+
     } else {
         this.herold.declare("There are no participants!");
     }
 }
 
-var characterFactory = new  CharacterFactory();
-
 var tournament = new Tournament(6);
 
-var monster1 = characterFactory.createMonsterOrk("RedHorror");
-var defectMonster = characterFactory.createMonster("Terror", "Zombie");
-var monster2 = characterFactory.createMonsterGoblin("Destroyer");
-var monster3 = characterFactory.createMonsterVampire("Dracula");
-var monster4 = characterFactory.createMonsterVampire("Bloody");
+var monster1 = CharacterFactory.createMonsterOrk("RedHorror");
+var defectMonster = CharacterFactory.createMonster("Terror", "Zombie");
+// var monster2 = CharacterFactory.createMonsterGoblin("Destroyer");
+var monster3 = CharacterFactory.createMonsterVampire("Dracula");
 
-var hero1 = characterFactory.createHeroTheif("Ruby");
-var defectHero = characterFactory.createHeroTheif("Jack");
-var hero2 = characterFactory.createHeroWarrior("Wisdom");
-var hero3 = characterFactory.createHeroWizard("Ice");
+var hero1 = CharacterFactory.createHeroTheif("Ruby");
+var defectHero = CharacterFactory.createHeroTheif("Jack");
+var hero2 = CharacterFactory.createHeroWarrior("Wisdom");
+var hero3 = CharacterFactory.createHeroWizard("Ice");
 
 tournament.registrate(monster1);
 tournament.registrate(defectMonster);
-tournament.registrate(monster2);
+// tournament.registrate(monster2);
 tournament.registrate(monster3);
-tournament.registrate(monster4);
 tournament.registrate(hero1);
 tournament.registrate(defectHero);
 tournament.registrate(hero2);
