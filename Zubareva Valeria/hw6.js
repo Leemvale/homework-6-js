@@ -1,3 +1,5 @@
+//Зелье дается за победу в бою, персонаж может использовать зелье 1 раз за бой, после боя действие зелья прекращается.
+
 function Character(name, race, life, damage) {
     this.name = name;
     this.race = race;
@@ -5,8 +7,7 @@ function Character(name, race, life, damage) {
     this.damage = damage;
     this.maxLife = life;
     this.counter = 2;
-    this.secretDrink = false;
-    this.enchanted = false;
+    this.StealTheSkillPotion = null;
 }
 
 Character.STANDARTLIFE = 1000;
@@ -18,8 +19,10 @@ Character.prototype.setLife = function (dmg) {
 
 Character.prototype.updateCharacter = function () {
     this.life = this.maxLife;
-    this.enchanted = false;
-    this.counter = 2;
+    if (this.StealTheSkillPotion !== null && this.StealTheSkillPotion.use) {
+        this.StealTheSkillPotion.cancelTheEnchantment(this);
+        this.StealTheSkillPotion = null;
+    }
 }
 
 Character.prototype.getDamage = function () {
@@ -39,24 +42,22 @@ Character.prototype.getLife = function () {
 }
 
 Character.prototype.shouldUseSkill = function () {
-    return (this.life < this.maxLife / 2 && this.counter > 0);
+    return (this.life < this.maxLife / 2);
 }
 
-Character.prototype.drinkSecretDrink = function () {
+Character.prototype.drinkSecretDrink = function (opposite) {
     console.log("Character " + this.name + " use secret drink");
-    this.secretDrink = false;
-    this.enchanted = true;
-    this.counter *= 2;
+    this.StealTheSkillPotion.enchantTheCharacter(this, opposite);
 }
 
 Character.prototype.prepareForFight = function (opposite) {
     if (this.shouldUseSecretDrink(opposite)) {
-        this.drinkSecretDrink();
+        this.drinkSecretDrink(opposite);
     }
 }
 
 Character.prototype.setReward = function () {
-    this.secretDrink = true;
+    this.StealTheSkillPotion = new StealTheSkillPotion();
 }
 
 
@@ -84,24 +85,28 @@ Hero.prototype = Object.create(Character.prototype);
 Hero.prototype.constructor = Hero;
 
 Hero.prototype.setLife = function (dmg) {
-    if (this.shouldUseSkill()) {
-        console.log(this.name + ' use hero skill');
-        this.counter--;
-    } else {
-        this.life -= dmg;
-    }
-}
+    var counter = this.counter;
+    var self = this;
 
-Hero.prototype.getDamage = function () {
-    if (this.enchanted) {
-        return Monster.prototype.getDamage.call(this);
-    } else {
-        return Character.prototype.getDamage.call(this);
+    this.setLife = function (dmg) {
+        if (self.shouldUseSkill() && counter) {
+            console.log(self.name + ' use hero skill');
+            counter--;
+        } else {
+            self.life -= dmg;
+        }
     }
+
+    this.setLife(dmg);
 }
 
 Hero.prototype.shouldUseSecretDrink = function (opposite) {
-    return this.secretDrink && opposite instanceof Monster;
+    return this.StealTheSkillPotion && opposite instanceof Monster;
+}
+
+Hero.prototype.updateCharacter = function () {
+    this.setLife = Hero.prototype.setLife;
+    Character.prototype.updateCharacter.apply(this);
 }
 
 
@@ -129,28 +134,64 @@ Monster.prototype = Object.create(Character.prototype);
 Monster.prototype.constructor = Monster;
 
 Monster.prototype.getDamage = function () {
-    if (this.shouldUseSkill()) {
-        console.log(this.name + ' use monster skill');
-        this.counter--;
-        return this.damage * 2;
-    }
-    return this.damage;
-}
+    var counter = this.counter;
+    var self = this;
 
-Monster.prototype.setLife = function (dmg) {
-    if (this.enchanted) {
-        return Hero.prototype.setLife.call(this, dmg);
-    } else {
-        return Character.prototype.setLife.call(this, dmg);
+    this.getDamage = function () {
+        if (self.shouldUseSkill() && counter) {
+            console.log(self.name + ' use monster skill');
+            counter--;
+            return self.damage * 2;
+        }
+        return self.damage;
     }
+    return this.getDamage();
 }
 
 Monster.prototype.shouldUseSecretDrink = function (opposite) {
-    return this.secretDrink && opposite instanceof Hero;
+    return this.StealTheSkillPotion && opposite instanceof Hero;
+}
+
+Monster.prototype.updateCharacter = function () {
+    this.getDamage = Monster.prototype.getDamage;
+    Character.prototype.updateCharacter.apply(this);
 }
 
 
-function CharacterFactory() {}
+function Potion() {
+    this.isUsed = false;
+}
+
+
+function StealTheSkillPotion() {
+    Potion.apply(this);
+}
+
+StealTheSkillPotion.prototype = Object.create(Potion.prototype);
+StealTheSkillPotion.constructor = StealTheSkillPotion;
+
+StealTheSkillPotion.prototype.enchantTheCharacter = function (character, opposite) {
+    if (!this.isUsed) {
+        if (character instanceof Hero && opposite instanceof Monster) {
+            character.getDamage = Monster.prototype.getDamage;
+        } else if (character instanceof Monster && opposite instanceof Hero) {
+            character.setLife = Hero.prototype.setLife;
+        }
+        this.isUsed = true;
+    }
+}
+
+StealTheSkillPotion.prototype.cancelTheEnchantment = function (character) {
+    if (character instanceof Hero) {
+        character.getDamage = Character.prototype.getDamage;
+    } else if (character instanceof Monster) {
+        character.setLife = Character.prototype.setLife;
+    }
+}
+
+
+function CharacterFactory() {
+}
 
 CharacterFactory.createHero = function (name, race) {
     return new Hero(name, race, Character.STANDARTLIFE, Character.STANDARTDAMAGE);
@@ -240,7 +281,8 @@ Game.prototype.sumUpTheFight = function (character1, character2) {
 }
 
 
-function Herold() {}
+function Herold() {
+}
 
 Herold.prototype.declare = function (message) {
     console.log(message);
@@ -260,10 +302,11 @@ var monstersAndCreaturesGuide = {
 }
 
 
-function FaceControl() {}
+function FaceControl() {
+}
 
 FaceControl.prototype.checkOrigin = function (character) {
-     return character instanceof Hero || character instanceof Monster
+    return character instanceof Hero || character instanceof Monster
 }
 
 FaceControl.prototype.checkRace = function (character) {
@@ -308,7 +351,7 @@ Tournament.prototype.getParticipants = function () {
     return this.participants;
 }
 
-Tournament.prototype.setParticipants = function (participants){
+Tournament.prototype.setParticipants = function (participants) {
     this.participants = participants;
 }
 
@@ -337,7 +380,7 @@ Tournament.prototype.makeCurrentOppositesList = function () {
     var oppositesList = [];
     var participants = this.getParticipants();
     var middle = Math.round(participants.length / 2);
-    for(var i = 0; i < middle; i++){
+    for (var i = 0; i < middle; i++) {
         oppositesList.push([participants[i], participants[middle + i]]);
     }
     return oppositesList;
@@ -346,7 +389,7 @@ Tournament.prototype.makeCurrentOppositesList = function () {
 Tournament.prototype.playRound = function () {
     var roundWinners = [];
     var opposites = this.makeCurrentOppositesList();
-    while(opposites.length) {
+    while (opposites.length) {
         var character1 = opposites[0][0];
         var character2 = opposites[0][1];
 
@@ -390,7 +433,7 @@ var tournament = new Tournament(6);
 
 var monster1 = CharacterFactory.createMonsterOrk("RedHorror");
 var defectMonster = CharacterFactory.createMonster("Terror", "Zombie");
-// var monster2 = CharacterFactory.createMonsterGoblin("Destroyer");
+var monster2 = CharacterFactory.createMonsterGoblin("Destroyer");
 var monster3 = CharacterFactory.createMonsterVampire("Dracula");
 
 var hero1 = CharacterFactory.createHeroThief("Ruby");
@@ -400,7 +443,7 @@ var hero3 = CharacterFactory.createHeroWizard("Ice");
 
 tournament.registrate(monster1);
 tournament.registrate(defectMonster);
-// tournament.registrate(monster2);
+tournament.registrate(monster2);
 tournament.registrate(monster3);
 tournament.registrate(hero1);
 tournament.registrate(defectHero);
