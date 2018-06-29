@@ -42,10 +42,6 @@ Character.prototype.shouldUseSkill = function () {
     return (this.life < this.maxLife / 2 && this.counter > 0);
 }
 
-Character.prototype.shouldUseSecretDrink = function (opposite) {
-    return this.secretDrink && ((this instanceof Hero && opposite instanceof Monster) || (this instanceof Monster && opposite instanceof Hero))
-}
-
 Character.prototype.drinkSecretDrink = function () {
     console.log("Character " + this.name + " use secret drink");
     this.secretDrink = false;
@@ -104,6 +100,10 @@ Hero.prototype.getDamage = function () {
     }
 }
 
+Hero.prototype.shouldUseSecretDrink = function (opposite) {
+    return this.secretDrink && opposite instanceof Monster;
+}
+
 
 function Monster() {
     Character.apply(this, arguments);
@@ -143,6 +143,10 @@ Monster.prototype.setLife = function (dmg) {
     } else {
         return Character.prototype.setLife.call(this, dmg);
     }
+}
+
+Monster.prototype.shouldUseSecretDrink = function (opposite) {
+    return this.secretDrink && opposite instanceof Hero;
 }
 
 
