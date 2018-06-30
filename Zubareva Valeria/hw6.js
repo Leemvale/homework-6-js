@@ -7,7 +7,7 @@ function Character(name, race, life, damage) {
     this.damage = damage;
     this.maxLife = life;
     this.counter = 2;
-    this.StealTheSkillPotion = null;
+    this.stealTheSkillPotion = null;
 }
 
 Character.STANDARTLIFE = 1000;
@@ -19,9 +19,9 @@ Character.prototype.setLife = function (dmg) {
 
 Character.prototype.updateCharacter = function () {
     this.life = this.maxLife;
-    if (this.StealTheSkillPotion !== null && this.StealTheSkillPotion.use) {
-        this.StealTheSkillPotion.cancelTheEnchantment(this);
-        this.StealTheSkillPotion = null;
+    if (this.stealTheSkillPotion !== null && this.stealTheSkillPotion.isUsed) {
+        this.stealTheSkillPotion.cancelTheEnchantment(this);
+        this.stealTheSkillPotion = null;
     }
 }
 
@@ -47,7 +47,7 @@ Character.prototype.shouldUseSkill = function () {
 
 Character.prototype.drinkSecretDrink = function (opposite) {
     console.log("Character " + this.name + " use secret drink");
-    this.StealTheSkillPotion.enchantTheCharacter(this, opposite);
+    this.stealTheSkillPotion.enchantTheCharacter(this, opposite);
 }
 
 Character.prototype.prepareForFight = function (opposite) {
@@ -57,7 +57,7 @@ Character.prototype.prepareForFight = function (opposite) {
 }
 
 Character.prototype.setReward = function () {
-    this.StealTheSkillPotion = new StealTheSkillPotion();
+    this.stealTheSkillPotion = new StealTheSkillPotion();
 }
 
 
@@ -101,7 +101,7 @@ Hero.prototype.setLife = function (dmg) {
 }
 
 Hero.prototype.shouldUseSecretDrink = function (opposite) {
-    return this.StealTheSkillPotion && opposite instanceof Monster;
+    return this.stealTheSkillPotion && opposite instanceof Monster;
 }
 
 Hero.prototype.updateCharacter = function () {
@@ -149,7 +149,7 @@ Monster.prototype.getDamage = function () {
 }
 
 Monster.prototype.shouldUseSecretDrink = function (opposite) {
-    return this.StealTheSkillPotion && opposite instanceof Hero;
+    return this.stealTheSkillPotion && opposite instanceof Hero;
 }
 
 Monster.prototype.updateCharacter = function () {
